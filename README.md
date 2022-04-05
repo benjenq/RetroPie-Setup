@@ -1,6 +1,9 @@
 RetroPie-Setup
 ==============
 
+Install [Localized EmulationStation](https://github.com/benjenq/EmulationStation) for multi language supported.
+
+
 General Usage
 -------------
 
@@ -16,17 +19,25 @@ sudo apt-get dist-upgrade
 sudo apt-get install git
 ```
 
+Resolve dependencies of libraries for [Localized EmulationStation](https://github.com/benjenq/EmulationStation)
+
+```shell
+sudo apt-get install -y libboost-system-dev libboost-filesystem-dev libboost-date-time-dev libboost-locale-dev libfreeimage-dev libfreetype6-dev libeigen3-dev libcurl4-openssl-dev libasound2-dev cmake libsdl2-dev gettext
+
+```
+
 Then you can download the latest RetroPie setup script with:
 
 ```shell
 cd
-git clone --depth=1 https://github.com/RetroPie/RetroPie-Setup.git
+git clone --depth=1 https://github.com/benjenq/RetroPie-Setup.git
 ```
 
 The script is executed with:
 
 ```shell
 cd RetroPie-Setup
+chmod +x retropie_setup.sh
 sudo ./retropie_setup.sh
 ```
 
