@@ -29,14 +29,14 @@ sudo apt-get install -y libboost-system-dev libboost-filesystem-dev libboost-dat
 Then you can download the latest RetroPie setup script with:
 
 ```shell
-cd~
+cd ~
 git clone --depth=1 https://github.com/benjenq/RetroPie-Setup.git
 ```
 
 The script is executed with:
 
 ```shell
-cd RetroPie-Setup
+cd ~/RetroPie-Setup
 chmod +x retropie_setup.sh
 sudo ./retropie_setup.sh
 ```
