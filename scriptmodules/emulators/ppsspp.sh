@@ -141,9 +141,8 @@ function build_ppsspp() {
         params+=(-DCMAKE_CXX_FLAGS="${CXXFLAGS/-DGL_GLEXT_PROTOTYPES/}")
     elif isPlatform "tinker"; then
         params+=(-DCMAKE_TOOLCHAIN_FILE="$md_data/tinker.armv7.cmake")
-    elif isPlatform "vero4k"; then
-        params+=(-DCMAKE_TOOLCHAIN_FILE="cmake/Toolchains/vero4k.armv8.cmake")
     fi
+    isPlatform "vero4k" && params+=(-DCMAKE_TOOLCHAIN_FILE="cmake/Toolchains/vero4k.armv8.cmake")
     if isPlatform "arm" && ! isPlatform "x11"; then
         params+=(-DARM_NO_VULKAN=ON)
     fi
@@ -172,10 +171,19 @@ function configure_ppsspp() {
     fi
 
     mkRomDir "psp"
-    moveConfigDir "$home/.config/ppsspp" "$md_conf_root/psp"
-    mkUserDir "$md_conf_root/psp/PSP"
-    ln -snf "$romdir/psp" "$md_conf_root/psp/PSP/GAME"
+    if [[ "$md_mode" == "install" ]]; then
+        moveConfigDir "$home/.config/ppsspp" "$md_conf_root/psp"
+        mkUserDir "$md_conf_root/psp/PSP"
+        ln -snf "$romdir/psp" "$md_conf_root/psp/PSP/GAME"
+    fi
 
     addEmulator 0 "$md_id" "psp" "pushd $md_inst; $md_inst/PPSSPPSDL ${extra_params[*]} %ROM%; popd"
     addSystem "psp"
+
+    # if we are removing the last remaining psp emu - remove the symlink
+    if [[ "$md_mode" == "remove" ]]; then
+        if [[ -h "$home/.config/ppsspp" && ! -f "$md_conf_root/psp/emulators.cfg" ]]; then
+            rm -f "$home/.config/ppsspp"
+        fi
+    fi
 }
