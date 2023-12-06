@@ -95,6 +95,11 @@ XRANDR="xrandr"
 
 source "$ROOTDIR/lib/inifuncs.sh"
 
+# disable the `patsub_replacement` shell option, it breaks the string substitution when replacement contains '&'
+if shopt -s patsub_replacement 2>/dev/null; then
+    shopt -u patsub_replacement
+fi
+
 function get_config() {
     declare -Ag MODE_MAP
 
@@ -1025,6 +1030,7 @@ function mode_switch() {
         # if we have switched mode, switch the framebuffer resolution also
         if [[ "$?" -eq 0 ]]; then
             sleep 1
+            clear
             MODE_CUR=($(get_${HAS_MODESET}_mode_info))
             [[ -z "$FB_NEW" ]] && FB_NEW="${MODE_CUR[2]}x${MODE_CUR[3]}"
             return 0
@@ -1306,11 +1312,11 @@ function launch_command() {
     if [[ "$CONSOLE_OUT" -eq 1 ]]; then
         # turn cursor on
         tput cnorm
-        eval $COMMAND </dev/tty 2>>"$LOG"
+        eval "$COMMAND" </dev/tty 2>>"$LOG"
         ret=$?
         tput civis
     else
-        eval $COMMAND </dev/tty &>>"$LOG"
+        eval "$COMMAND" </dev/tty &>>"$LOG"
         ret=$?
     fi
     return $ret

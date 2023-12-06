@@ -133,6 +133,38 @@ function editFile() {
     [[ -n "$choice" ]] && echo "$choice" >"$file"
 }
 
+## @fn inputBox()
+## @param title title of dialog
+## @param text default text
+## @param minchars minimum chars to accept
+## @brief Opens an inputbox dialog and echoes resulting text. Uses the OSK if installed.
+## @details The input dialog has OK/Cancel buttons and can be cancelled by the user.
+## The dialog will enforce the minimum number of characters expected, re-prompting the user.
+## @retval 0 when the user entered the text and chose the OK button
+## @retval != 0 when the user chose the Cancel button
+
+function inputBox() {
+    local title="$1"
+    local text="$2"
+    local minchars="$3"
+    [[ -z "$minchars" ]] && minchars=0
+    local params=(--backtitle "$__backtitle" --inputbox "Enter the $title")
+    local osk="$(rp_getInstallPath joy2key)/osk.py"
+
+    if [[ -f "$osk" ]]; then
+        params+=(--minchars "$minchars")
+        text=$(python3 "$osk" "${params[@]}" "$text" 2>&1 >/dev/tty) || return $?
+    else
+        while true; do
+            text=$(dialog "${params[@]}" 10 60 "$text" 2>&1 >/dev/tty) || return $?
+            [[ "${#text}" -ge "$minchars" ]] && break
+            dialog --msgbox "$title must have at least $minchars characters" 8 60 2>&1 >/dev/tty
+        done
+    fi
+
+    echo "$text"
+}
+
 ## @fn hasPackage()
 ## @param package name of Debian package
 ## @param version requested version (optional)
@@ -148,7 +180,8 @@ function hasPackage() {
 
     local ver
     local status
-    local out=$(dpkg-query -W --showformat='${Status} ${Version}' $1 2>/dev/null)
+    # extract the first line only (for cases where both amd64 & i386 versions of a package are installed)
+    local out=$(dpkg-query -W --showformat='${Status} ${Version}\n' $1 2>/dev/null | head -n1)
     if [[ "$?" -eq 0 ]]; then
         ver="${out##* }"
         status="${out% *}"
@@ -215,7 +248,23 @@ function _mapPackage() {
         # handle our custom package alias LINUX-HEADERS
         LINUX-HEADERS)
             if isPlatform "rpi"; then
-                pkg="raspberrypi-kernel-headers"
+                if [[ "$__os_debian_ver" -lt 12 ]]; then
+                    pkg="raspberrypi-kernel-headers"
+                else
+                    # on RaspiOS bookworm and later, kernel packages are separated by arch and model
+                    isPlatform "rpi0" || isPlatform "rpi1" && pkg="linux-headers-rpi-v6"
+                    if isPlatform "32bit"; then
+                        isPlatform "rpi2" || isPlatform "rpi3" && pkg="linux-headers-rpi-v7"
+                        isPlatform "rpi4" && pkg="linux-headers-rpi-v7l"
+                    else
+                        isPlatform "rpi3" || isPlatform "rpi4" && pkg="linux-headers-rpi-v8"
+                        isPlatform "rpi5" && pkg="linux-headers-rpi-2712"
+                    fi
+                fi
+            elif isPlatform "armbian"; then
+                local branch="$(grep -oP "BRANCH=\K.*"      /etc/armbian-release)"
+                local family="$(grep -oP "LINUXFAMILY=\K.*" /etc/armbian-release)"
+                pkg="linux-headers-${branch}-${family}"
             elif [[ -z "$__os_ubuntu_ver" ]]; then
                 pkg="linux-headers-$(uname -r)"
             else
@@ -224,7 +273,7 @@ function _mapPackage() {
             ;;
         # map libpng-dev to libpng12-dev for Jessie
         libpng-dev)
-            compareVersions "$__os_debian_ver" lt 9 && pkg="libpng12-dev"
+            [[ "$__os_debian_ver" -lt 9 ]] && pkg="libpng12-dev"
             ;;
         libsdl1.2-dev)
             rp_isEnabled "sdl1" && pkg="RP sdl1 $pkg"
@@ -246,6 +295,9 @@ function _mapPackage() {
                 fi
                 [[ "$own_sdl2" -eq 1 ]] && pkg="RP sdl2 $pkg"
             fi
+            ;;
+        libfreetype6-dev)
+            [[ "$__os_debian_ver" -gt 10 ]] || compareVersions "$__os_ubuntu_ver" gt 23.04 && pkg="libfreetype-dev"
             ;;
     esac
     echo "$pkg"
@@ -1545,7 +1597,7 @@ function patchVendorGraphics() {
     local filename="$1"
 
     # patchelf is not available on Raspbian Jessie
-    compareVersions "$__os_debian_ver" lt 9 && return
+    [[ "$__os_debian_ver" -lt 9 ]] && return
 
     getDepends patchelf
     printMsgs "console" "Applying vendor graphics patch: $filename"

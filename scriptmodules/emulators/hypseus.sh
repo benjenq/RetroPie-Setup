@@ -18,7 +18,7 @@ rp_module_section="exp"
 rp_module_flags="sdl2"
 
 function depends_hypseus() {
-    getDepends libvorbis-dev libogg-dev zlib1g-dev libmpeg2-4-dev libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev cmake
+    getDepends libvorbis-dev libogg-dev zlib1g-dev libzip-dev libmpeg2-4-dev libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev cmake
 }
 
 function sources_hypseus() {
@@ -59,7 +59,7 @@ function configure_hypseus() {
     mkUserDir "$md_conf_root/daphne"
 
     local dir
-    for dir in ram logs screenshots; do
+    for dir in ram logs screenshots bezels; do
         mkUserDir "$md_conf_root/daphne/$dir"
         ln -snf "$md_conf_root/daphne/$dir" "$md_inst/$dir"
     done
@@ -72,6 +72,8 @@ function configure_hypseus() {
     ln -sf "$md_conf_root/daphne/hypinput.ini" "$md_inst/hypinput.ini"
 
     local common_args="-framefile \"\$dir/\$name.txt\" -homedir \"$md_inst\" -fullscreen \$params"
+    # prevents SDL doing an internal software conversion since 2.0.16+
+    isPlatform "arm" && common_args="-texturestream $common_args"
 
     cat >"$md_inst/hypseus.sh" <<_EOF_
 #!/bin/bash

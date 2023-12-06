@@ -13,9 +13,18 @@ rp_module_id="ppsspp"
 rp_module_desc="PlayStation Portable emulator PPSSPP"
 rp_module_help="ROM Extensions: .iso .pbp .cso\n\nCopy your PlayStation Portable roms to $romdir/psp"
 rp_module_licence="GPL2 https://raw.githubusercontent.com/hrydgard/ppsspp/master/LICENSE.TXT"
-rp_module_repo="git https://github.com/hrydgard/ppsspp.git v1.12.3"
+rp_module_repo="git https://github.com/hrydgard/ppsspp.git :_get_release_ppsspp"
 rp_module_section="opt"
 rp_module_flags=""
+
+function _get_release_ppsspp() {
+    local tagged_version="v1.16.6"
+    #  the V3D Mesa driver before 21.x has issues with v1.14 and later
+    if [[ "$__os_debian_ver" -lt 11 ]] && isPlatform "kms" && isPlatform "rpi"; then
+        tagged_version="v1.13.2"
+    fi
+    echo $tagged_version
+}
 
 function depends_ppsspp() {
     local depends=(cmake libsdl2-dev libsnappy-dev libzip-dev zlib1g-dev)
@@ -43,6 +52,16 @@ function sources_ppsspp() {
 
     # ensure Pi vendor libraries are available for linking of shared library
     sed -n -i "p; s/^set(CMAKE_EXE_LINKER_FLAGS/set(CMAKE_SHARED_LINKER_FLAGS/p" cmake/Toolchains/raspberry.armv?.cmake
+
+    # fix missing defines on opengles2 on v1.16.6 lr-ppsspp/ppsspp
+    if [[ "$md_id" =~ ^(lr-)?ppsspp$ && "$(_get_release_ppsspp)" == "v1.16.6" ]]; then
+        applyPatch "${__mod_info[ppsspp/path]%/*}/ppsspp/gles2_fix.diff"
+    fi
+
+    # fix missing exported symbol for libretro on v1.13.2
+    if [[ "$md_id" == "lr-ppsspp" && "$(_get_release_ppsspp)" == "v1.13.2" ]]; then
+        applyPatch "$md_data/v13-libretro_fix.diff"
+    fi
 
     if hasPackage cmake 3.6 lt; then
         cd ..
@@ -143,7 +162,7 @@ function build_ppsspp() {
         params+=(-DCMAKE_TOOLCHAIN_FILE="$md_data/tinker.armv7.cmake")
     fi
     isPlatform "vero4k" && params+=(-DCMAKE_TOOLCHAIN_FILE="cmake/Toolchains/vero4k.armv8.cmake")
-    if isPlatform "arm" && ! isPlatform "x11"; then
+    if isPlatform "arm" && ! isPlatform "vulkan"; then
         params+=(-DARM_NO_VULKAN=ON)
     fi
     if [[ "$md_id" == "lr-ppsspp" ]]; then
